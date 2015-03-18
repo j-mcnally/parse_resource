@@ -430,7 +430,8 @@ module ParseResource
     end
 
     def create
-      attrs = attributes_for_saving.to_json
+      attrs = parseAttributes(attributes_for_saving)
+      attrs = attrs.to_json
       opts = {:content_type => "application/json"}
       result = self.resource.post(attrs, opts) do |resp, req, res, &block|
         return post_result(resp, req, res, &block)
@@ -442,7 +443,8 @@ module ParseResource
       attributes = HashWithIndifferentAccess.new(attributes)
 
       @unsaved_attributes.merge!(attributes)
-      put_attrs = attributes_for_saving.to_json
+      attrs = parseAttributes(attributes_for_saving)
+      put_attrs = attrs.to_json
 
       opts = {:content_type => "application/json"}
       result = self.instance_resource.put(put_attrs, opts) do |resp, req, res, &block|
@@ -489,6 +491,26 @@ module ParseResource
         self.error_instances << pe
         return false
       end
+    end
+
+    def parseAttributes(attrs)
+      out = {}
+      attrs.keys.each do |k|
+        v = attrs[k]
+        if v.is_a?(ActionDispatch::Http::UploadedFile)
+          puts "YOLO"
+          begin
+            response = self.class.upload(v.tempfile, "#{Time.now.to_i}-#{v.original_filename}")
+            out[k] = response["url"]
+          rescue StandardError => e
+            puts e.inspect
+          end
+          puts "SWAG"
+        else
+          out[k] = v
+        end
+      end
+      out
     end
 
     def attributes_for_saving
